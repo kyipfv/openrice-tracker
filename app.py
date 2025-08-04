@@ -53,8 +53,10 @@ def search_google_maps_restaurants():
     """Search for new restaurants in Hong Kong using Google Maps API"""
     api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
     if not api_key:
-        print("No Google Maps API key found")
+        print("WARNING: No Google Maps API key found in environment variables")
         return []
+    
+    print(f"Google Maps API key found: {api_key[:8]}...")
     
     try:
         gmaps = googlemaps.Client(key=api_key)
@@ -103,6 +105,10 @@ def search_google_maps_restaurants():
                                 'url': restaurant_url
                             })
                             print(f"Found via Google Maps: {result.get('name')}")
+                
+                # Limit total results
+                if len(new_restaurants) >= 20:
+                    return new_restaurants
                 
                 time.sleep(0.5)  # Rate limiting
                 
@@ -412,6 +418,15 @@ def update_restaurant_database():
         )
         db.session.add(log_entry)
         db.session.commit()
+
+@app.route('/refresh')
+def refresh():
+    """Manual refresh endpoint to update restaurant data"""
+    try:
+        update_restaurant_database()
+        return "Database refreshed! <a href='/'>Go back</a>"
+    except Exception as e:
+        return f"Error: {e}"
 
 @app.route('/')
 def index():
