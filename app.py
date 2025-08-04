@@ -264,5 +264,6 @@ if __name__ == '__main__':
     setup_scheduler()
     
     # Start Flask server
-    print("Starting Flask server on 0.0.0.0:7860")
-    app.run(host='0.0.0.0', port=7860, debug=False)
+    port = int(os.environ.get('PORT', 7860))
+    print(f"Starting Flask server on 0.0.0.0:{port}")
+    app.run(host='0.0.0.0', port=port, debug=False)
