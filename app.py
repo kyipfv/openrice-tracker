@@ -10,6 +10,8 @@ import random
 import pytz
 import os
 import logging
+import googlemaps
+from datetime import timezone
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///restaurants.db'
@@ -47,8 +49,85 @@ def get_week_range():
     
     return start_date, end_date
 
+def search_google_maps_restaurants():
+    """Search for new restaurants in Hong Kong using Google Maps API"""
+    api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+    if not api_key:
+        print("No Google Maps API key found")
+        return []
+    
+    try:
+        gmaps = googlemaps.Client(key=api_key)
+        new_restaurants = []
+        
+        # Search for restaurants in different areas of Hong Kong
+        search_locations = [
+            {"name": "Central", "lat": 22.2796, "lng": 114.1588},
+            {"name": "Tsim Sha Tsui", "lat": 22.2988, "lng": 114.1722},
+            {"name": "Causeway Bay", "lat": 22.2802, "lng": 114.1858},
+            {"name": "Wan Chai", "lat": 22.2772, "lng": 114.1750},
+            {"name": "Soho", "lat": 22.2817, "lng": 114.1533}
+        ]
+        
+        for location in search_locations:
+            try:
+                # Search for restaurants
+                places_result = gmaps.places_nearby(
+                    location=(location['lat'], location['lng']),
+                    radius=1000,
+                    type='restaurant',
+                    language='en',
+                    keyword='new restaurant'
+                )
+                
+                # Get details for each place
+                for place in places_result.get('results', [])[:5]:
+                    place_id = place['place_id']
+                    
+                    # Get detailed info
+                    details = gmaps.place(place_id, fields=[
+                        'name', 'formatted_address', 'opening_hours',
+                        'website', 'url', 'types', 'business_status'
+                    ])
+                    
+                    if details['status'] == 'OK':
+                        result = details['result']
+                        
+                        # Only include if business is operational
+                        if result.get('business_status') == 'OPERATIONAL':
+                            restaurant_url = result.get('website') or result.get('url', '')
+                            
+                            new_restaurants.append({
+                                'name': result.get('name', ''),
+                                'address': result.get('formatted_address', '').replace(', Hong Kong', ''),
+                                'url': restaurant_url
+                            })
+                            print(f"Found via Google Maps: {result.get('name')}")
+                
+                time.sleep(0.5)  # Rate limiting
+                
+            except Exception as e:
+                print(f"Error searching {location}: {e}")
+                continue
+        
+        return new_restaurants
+        
+    except Exception as e:
+        print(f"Google Maps API error: {e}")
+        return []
+
 def scrape_openrice_new_restaurants():
-    """Scrape OpenRice Hong Kong for new restaurants with multiple strategies"""
+    """Get new restaurants from Google Maps first, then fall back to OpenRice scraping"""
+    
+    # Try Google Maps API first
+    new_restaurants = search_google_maps_restaurants()
+    
+    if new_restaurants:
+        print(f"Got {len(new_restaurants)} restaurants from Google Maps")
+        return new_restaurants
+    
+    # Fall back to OpenRice scraping
+    print("Google Maps unavailable, trying OpenRice scraping...")
     session = requests.Session()
     
     # Rotate user agents for better success
