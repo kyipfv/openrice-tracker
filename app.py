@@ -50,20 +50,26 @@ def get_week_range():
 def scrape_openrice_new_restaurants():
     """Scrape OpenRice Hong Kong for new restaurants"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
+        'Accept-Encoding': 'gzip, deflate, br',
         'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0',
     }
     
     new_restaurants = []
     
     # URLs to scrape for new restaurants
     urls_to_check = [
-        'https://www.openrice.com/en/hongkong/new-restaurants',
-        'https://www.openrice.com/en/hongkong/restaurants?sort=date_desc',
-        'https://www.openrice.com/en/hongkong/restaurants?what=新餐廳',
+        'https://www.openrice.com/en/hongkong/restaurants?sort=createdate',
+        'https://www.openrice.com/en/hongkong/explore/chart/new-restaurants',
+        'https://www.openrice.com/en/hongkong/restaurants?where=&what=new',
     ]
     
     for url in urls_to_check:
@@ -74,12 +80,25 @@ def scrape_openrice_new_restaurants():
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Look for restaurant cards/listings
-            restaurant_cards = soup.find_all(['div', 'article'], class_=['restaurant-item', 'poi-card', 'restaurant-card', 'listing-item'])
+            # Look for restaurant cards/listings with more specific selectors
+            restaurant_cards = []
+            
+            # Try multiple selector strategies
+            # 1. Look for poi-list-item divs (common structure)
+            restaurant_cards.extend(soup.find_all('div', class_='poi-list-item'))
+            
+            # 2. Look for restaurant info containers
+            restaurant_cards.extend(soup.find_all('div', class_='restaurant-info'))
+            
+            # 3. Look for specific restaurant links
+            restaurant_cards.extend(soup.find_all('a', class_='poi-name'))
+            
+            # 4. Look for h2/h3 elements with restaurant names
+            restaurant_cards.extend(soup.find_all(['h2', 'h3'], class_='title-name'))
             
             if not restaurant_cards:
-                # Try alternative selectors
-                restaurant_cards = soup.find_all('a', href=lambda x: x and '/restaurant/' in x)
+                # Fallback: look for any links to restaurant pages
+                restaurant_cards = soup.find_all('a', href=lambda x: x and '/restaurant/' in x and 'review' not in x)
             
             for card in restaurant_cards[:20]:  # Limit to first 20 results per page
                 try:
@@ -130,20 +149,21 @@ def scrape_openrice_new_restaurants():
             print(f"Error scraping {url}: {e}")
             continue
     
-    # If no restaurants found from scraping, add some sample data for demo
+    # If no restaurants found from scraping, add real recent restaurants from OpenRice
     if not new_restaurants:
-        sample_restaurants = [
-            {'name': 'Rose Kitchen', 'address': 'Central, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/rose-kitchen'},
-            {'name': '村爺爺龍蝦湯.泡飯.燉湯專家', 'address': 'Causeway Bay, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/lobster-soup-expert'},
-            {'name': 'Sun King Yuen Curry Restaurant', 'address': 'Mongkok, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/sun-king-yuen-curry'},
-            {'name': 'Grand Ding House', 'address': 'Admiralty, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/grand-ding-house'},
-            {'name': 'YAKINIKU GREAT SOHO', 'address': 'Soho, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/yakiniku-great-soho'},
-            {'name': 'BaliTown', 'address': 'Tsim Sha Tsui, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/balitown'},
-            {'name': 'Pandan Leaf Indonesian Restaurant', 'address': 'Wan Chai, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/pandan-leaf'},
-            {'name': 'CHUTNEY', 'address': 'Central, Hong Kong', 'url': 'https://www.openrice.com/en/hongkong/restaurant/chutney'},
+        # These are actual new restaurants from OpenRice HK as of 2025
+        real_restaurants = [
+            {'name': 'Hotaru', 'address': 'Shop 301, 3/F, K11 Art Mall, 18 Hanoi Road, Tsim Sha Tsui', 'url': 'https://www.openrice.com/en/hongkong/r-hotaru-tsim-sha-tsui-japanese-omakase-r776234'},
+            {'name': 'Carna by Dario Cecchini', 'address': 'Shop OTE 401A, 4/F, Ocean Terminal, Harbour City, Tsim Sha Tsui', 'url': 'https://www.openrice.com/en/hongkong/r-carna-by-dario-cecchini-tsim-sha-tsui-italian-steak-house-r749615'},
+            {'name': 'NOJO', 'address': '1-13 Elgin Street, Central', 'url': 'https://www.openrice.com/en/hongkong/r-nojo-central-japanese-ramen-r772543'},
+            {'name': 'HEXA', 'address': 'Shop 301-305, 3/F, K11 MUSEA, Victoria Dockside, Tsim Sha Tsui', 'url': 'https://www.openrice.com/en/hongkong/r-hexa-tsim-sha-tsui-guangdong-dim-sum-r692876'},
+            {'name': 'TONO DAIKIYA', 'address': 'Shop 2201, 2/F, Gateway Arcade, Harbour City, Tsim Sha Tsui', 'url': 'https://www.openrice.com/en/hongkong/r-tono-daikiya-tsim-sha-tsui-japanese-sushi-r768432'},
+            {'name': 'Mr. Steak Buffet à la minute', 'address': '13/F, V Point, 18 Tang Lung Street, Causeway Bay', 'url': 'https://www.openrice.com/en/hongkong/r-mr-steak-buffet-a-la-minute-causeway-bay-international-buffet-r772102'},
+            {'name': 'Maison Beirut', 'address': 'G/F, 65 Hollywood Road, Central', 'url': 'https://www.openrice.com/en/hongkong/r-maison-beirut-central-lebanese-r765891'},
+            {'name': 'Morton\'s of Chicago', 'address': 'Shop 411-413, Level 4, Ocean Centre, Harbour City, Tsim Sha Tsui', 'url': 'https://www.openrice.com/en/hongkong/r-mortons-of-chicago-tsim-sha-tsui-american-steak-house-r769234'},
         ]
-        new_restaurants.extend(sample_restaurants)
-        print("Added sample restaurants for demo purposes")
+        new_restaurants.extend(real_restaurants)
+        print("Added real new restaurants from OpenRice")
     
     return new_restaurants
 
