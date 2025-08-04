@@ -423,8 +423,19 @@ def update_restaurant_database():
 def refresh():
     """Manual refresh endpoint to update restaurant data"""
     try:
+        # Clear all existing restaurants for fresh start
+        Restaurant.query.delete()
+        db.session.commit()
+        
         update_restaurant_database()
-        return "Database refreshed! <a href='/'>Go back</a>"
+        
+        # Show what we got
+        restaurants = Restaurant.query.all()
+        result = f"Database refreshed with {len(restaurants)} restaurants!<br><br>"
+        for r in restaurants[:5]:
+            result += f"- {r.name} at {r.address}<br>"
+        result += f"<br><a href='/'>Go back</a>"
+        return result
     except Exception as e:
         return f"Error: {e}"
 
