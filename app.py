@@ -76,11 +76,11 @@ def scrape_openrice_new_restaurants():
     
     new_restaurants = []
     
-    # Try mobile site first (often less protected)
-    mobile_urls = [
-        'https://m.openrice.com/en/hongkong/restaurants?sort=createdate',
-        'https://www.openrice.com/en/hongkong/restaurants?sort=createdate',
-        'https://www.openrice.com/en/hongkong/explore/chart/new-restaurants',
+    # Try the new restaurant condition URL first
+    urls_to_check = [
+        'https://www.openrice.com/en/hongkong/restaurants?sortBy=ORScoreDesc&conditionId=2005',  # New restaurants!
+        'https://www.openrice.com/en/hongkong/restaurants?conditionId=2005',
+        'https://m.openrice.com/en/hongkong/restaurants?conditionId=2005',
     ]
     
     # First, try to establish a session by visiting the home page
@@ -90,7 +90,7 @@ def scrape_openrice_new_restaurants():
     except:
         pass
     
-    for url in mobile_urls:
+    for url in urls_to_check:
         try:
             print(f"Scraping: {url}")
             # Update headers with referer
@@ -112,18 +112,21 @@ def scrape_openrice_new_restaurants():
             # Look for restaurant cards/listings with more specific selectors
             restaurant_cards = []
             
-            # Try multiple selector strategies
-            # 1. Look for poi-list-item divs (common structure)
+            # Try multiple selector strategies for OpenRice's structure
+            # 1. Look for sr1-listing-item divs (newer structure)
+            restaurant_cards.extend(soup.find_all('div', class_='sr1-listing-item'))
+            
+            # 2. Look for poi-list-item divs (common structure)
             restaurant_cards.extend(soup.find_all('div', class_='poi-list-item'))
             
-            # 2. Look for restaurant info containers
-            restaurant_cards.extend(soup.find_all('div', class_='restaurant-info'))
+            # 3. Look for restaurant-item containers
+            restaurant_cards.extend(soup.find_all('div', class_='restaurant-item'))
             
-            # 3. Look for specific restaurant links
-            restaurant_cards.extend(soup.find_all('a', class_='poi-name'))
+            # 4. Look for specific restaurant links with title
+            restaurant_cards.extend(soup.find_all('a', {'title': True, 'href': lambda x: x and '/restaurant/' in x}))
             
-            # 4. Look for h2/h3 elements with restaurant names
-            restaurant_cards.extend(soup.find_all(['h2', 'h3'], class_='title-name'))
+            # 5. Look for h2/h3 elements with restaurant names
+            restaurant_cards.extend(soup.find_all(['h2', 'h3'], class_=['title-name', 'sr1-listing-item-title']))
             
             if not restaurant_cards:
                 # Fallback: look for any links to restaurant pages (exclude navigation)
