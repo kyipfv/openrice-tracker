@@ -48,35 +48,64 @@ def get_week_range():
     return start_date, end_date
 
 def scrape_openrice_new_restaurants():
-    """Scrape OpenRice Hong Kong for new restaurants"""
+    """Scrape OpenRice Hong Kong for new restaurants with multiple strategies"""
+    session = requests.Session()
+    
+    # Rotate user agents for better success
+    user_agents = [
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ]
+    
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': random.choice(user_agents),
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9,zh-TW;q=0.8,zh;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate',
+        'DNT': '1',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
         'Sec-Fetch-Dest': 'document',
         'Sec-Fetch-Mode': 'navigate',
         'Sec-Fetch-Site': 'none',
         'Sec-Fetch-User': '?1',
-        'Cache-Control': 'max-age=0',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
     }
     
     new_restaurants = []
     
-    # URLs to scrape for new restaurants
-    urls_to_check = [
+    # Try mobile site first (often less protected)
+    mobile_urls = [
+        'https://m.openrice.com/en/hongkong/restaurants?sort=createdate',
         'https://www.openrice.com/en/hongkong/restaurants?sort=createdate',
         'https://www.openrice.com/en/hongkong/explore/chart/new-restaurants',
-        'https://www.openrice.com/en/hongkong/restaurants?where=&what=new',
     ]
     
-    for url in urls_to_check:
+    # First, try to establish a session by visiting the home page
+    try:
+        home_response = session.get('https://www.openrice.com/en/hongkong', headers=headers, timeout=15)
+        time.sleep(random.uniform(1, 2))
+    except:
+        pass
+    
+    for url in mobile_urls:
         try:
             print(f"Scraping: {url}")
-            response = requests.get(url, headers=headers, timeout=30)
-            response.raise_for_status()
+            # Update headers with referer
+            headers['Referer'] = 'https://www.openrice.com/en/hongkong'
+            
+            response = session.get(url, headers=headers, timeout=30)
+            
+            # If blocked, try without session
+            if response.status_code >= 400:
+                time.sleep(random.uniform(3, 5))
+                response = requests.get(url, headers=headers, timeout=30)
+            
+            if response.status_code != 200:
+                print(f"Got status code {response.status_code} for {url}")
+                continue
             
             soup = BeautifulSoup(response.content, 'html.parser')
             
@@ -97,44 +126,72 @@ def scrape_openrice_new_restaurants():
             restaurant_cards.extend(soup.find_all(['h2', 'h3'], class_='title-name'))
             
             if not restaurant_cards:
-                # Fallback: look for any links to restaurant pages
-                restaurant_cards = soup.find_all('a', href=lambda x: x and '/restaurant/' in x and 'review' not in x)
+                # Fallback: look for any links to restaurant pages (exclude navigation)
+                restaurant_cards = soup.find_all('a', href=lambda x: x and '/restaurant/' in x and '-r' in x and all(exc not in x.lower() for exc in ['review', 'search', 'submit', 'contact', 'info']))
             
+            # Also look for JSON-LD structured data
+            json_scripts = soup.find_all('script', type='application/ld+json')
+            for script in json_scripts:
+                try:
+                    import json
+                    data = json.loads(script.string)
+                    if isinstance(data, list):
+                        for item in data:
+                            if item.get('@type') == 'Restaurant':
+                                new_restaurants.append({
+                                    'name': item.get('name', ''),
+                                    'address': item.get('address', {}).get('streetAddress', ''),
+                                    'url': item.get('url', '')
+                                })
+                except:
+                    pass
+            
+            # Parse HTML cards
             for card in restaurant_cards[:20]:  # Limit to first 20 results per page
                 try:
                     name = None
                     address = None
                     restaurant_url = None
                     
-                    # Extract name
-                    name_elem = card.find(['h2', 'h3', 'h4', 'span'], class_=['name', 'title', 'restaurant-name'])
+                    # More aggressive name extraction
+                    name_elem = card.find(['h2', 'h3', 'h4', 'span', 'a'], class_=['name', 'title', 'restaurant-name', 'poi-name'])
+                    if not name_elem and card.name == 'a':
+                        name_elem = card
                     if not name_elem:
-                        name_elem = card.find(['h2', 'h3', 'h4'])
+                        name_elem = card.find(text=True, recursive=False)
                     if name_elem:
-                        name = name_elem.get_text(strip=True)
+                        name = name_elem.get_text(strip=True) if hasattr(name_elem, 'get_text') else str(name_elem).strip()
                     
-                    # Extract address
-                    address_elem = card.find(['span', 'div', 'p'], class_=['address', 'location', 'district'])
+                    # More aggressive address extraction
+                    address_elem = card.find(['span', 'div', 'p'], class_=['address', 'location', 'district', 'address-info'])
+                    if not address_elem:
+                        address_elem = card.find(string=lambda text: text and any(dist in text for dist in ['Central', 'Tsim Sha Tsui', 'Causeway Bay', 'Wan Chai', 'Admiralty']))
                     if address_elem:
-                        address = address_elem.get_text(strip=True)
+                        address = address_elem.get_text(strip=True) if hasattr(address_elem, 'get_text') else str(address_elem).strip()
                     
                     # Extract URL
                     if card.name == 'a' and card.get('href'):
                         restaurant_url = card.get('href')
-                        if restaurant_url.startswith('/'):
-                            restaurant_url = 'https://www.openrice.com' + restaurant_url
                     else:
                         link_elem = card.find('a', href=lambda x: x and '/restaurant/' in x)
                         if link_elem:
                             restaurant_url = link_elem.get('href')
-                            if restaurant_url.startswith('/'):
-                                restaurant_url = 'https://www.openrice.com' + restaurant_url
                     
-                    if name and address:
+                    if restaurant_url and restaurant_url.startswith('/'):
+                        restaurant_url = 'https://www.openrice.com' + restaurant_url
+                    
+                    if name and (address or restaurant_url):
+                        # Clean up the data
+                        name = name.replace('\n', ' ').strip()
+                        if address:
+                            address = address.replace('\n', ' ').strip()
+                        else:
+                            address = 'Hong Kong'
+                            
                         new_restaurants.append({
                             'name': name,
                             'address': address,
-                            'url': restaurant_url or url
+                            'url': restaurant_url or ''
                         })
                         print(f"Found: {name} - {address}")
                     
@@ -149,7 +206,55 @@ def scrape_openrice_new_restaurants():
             print(f"Error scraping {url}: {e}")
             continue
     
-    # If no restaurants found from scraping, add real recent restaurants from OpenRice
+    # Try alternative approach: search for specific new restaurants
+    if len(new_restaurants) < 5:
+        print("Trying search approach...")
+        search_terms = ['新開張', 'new opening', '2025', 'newly opened', 'grand opening']
+        
+        for term in search_terms:
+            try:
+                search_url = f'https://www.openrice.com/en/hongkong/restaurants?what={term}'
+                headers['User-Agent'] = random.choice(user_agents)
+                response = session.get(search_url, headers=headers, timeout=20)
+                
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    # Look for any restaurant links in search results (exclude navigation)
+                    links = soup.find_all('a', href=lambda x: x and '/restaurant/' in x and '-r' in x and 'search' not in x.lower() and 'submit' not in x.lower() and 'contact' not in x.lower())
+                    
+                    for link in links[:5]:
+                        try:
+                            name = link.get_text(strip=True)
+                            url = link.get('href')
+                            if url.startswith('/'):
+                                url = 'https://www.openrice.com' + url
+                            
+                            if name and url and not any(r['name'] == name for r in new_restaurants):
+                                new_restaurants.append({
+                                    'name': name,
+                                    'address': 'Hong Kong',
+                                    'url': url
+                                })
+                                print(f"Found via search: {name}")
+                        except:
+                            continue
+                
+                time.sleep(random.uniform(1, 2))
+            except Exception as e:
+                print(f"Search error: {e}")
+                continue
+    
+    # Remove duplicates
+    seen = set()
+    unique_restaurants = []
+    for r in new_restaurants:
+        if r['name'] not in seen:
+            seen.add(r['name'])
+            unique_restaurants.append(r)
+    
+    new_restaurants = unique_restaurants
+    
+    # If still no restaurants found from scraping, add real recent restaurants from OpenRice
     if not new_restaurants:
         # These are actual new restaurants from OpenRice HK as of 2025
         real_restaurants = [
