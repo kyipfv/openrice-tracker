@@ -57,10 +57,10 @@ def search_google_maps_restaurants():
         if 'GOOGLE' in key.upper():
             print(f"Found env var: {key}")
     
-    api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
+    api_key = os.environ.get('GOOGLE_MAPS_API_KEY2')
     if not api_key:
         print("WARNING: No Google Maps API key found in environment variables")
-        print(f"Looking for: GOOGLE_MAPS_API_KEY")
+        print(f"Looking for: GOOGLE_MAPS_API_KEY2")
         print(f"Available keys: {list(os.environ.keys())[:5]}...")  # Show first 5 keys
         return []
     

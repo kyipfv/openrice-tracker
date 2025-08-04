@@ -8,7 +8,7 @@ A web app that tracks newly listed restaurants in Hong Kong for the latest 7-day
 pip install -r requirements.txt
 
 # Optional: Set Google Maps API key for fresh data
-export GOOGLE_MAPS_API_KEY="your-api-key-here"
+export GOOGLE_MAPS_API_KEY2="your-api-key-here"
 
 python app.py    # serves at http://127.0.0.1:7860
 ```
@@ -19,7 +19,7 @@ python app.py    # serves at http://127.0.0.1:7860
 2. Create a new project or select existing
 3. Enable "Places API" and "Maps JavaScript API"
 4. Create credentials (API Key)
-5. Set the environment variable: `export GOOGLE_MAPS_API_KEY="your-key"`
+5. Set the environment variable: `export GOOGLE_MAPS_API_KEY2="your-key"`
 
 Without API key: Falls back to sample restaurant data
 
