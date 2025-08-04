@@ -209,23 +209,32 @@ def update_restaurant_database():
 @app.route('/')
 def index():
     """Main page showing new restaurants"""
-    start_date, end_date = get_week_range()
-    
-    # Get restaurants from current week
-    restaurants = Restaurant.query.order_by(Restaurant.name).all()
-    
-    # Get last update timestamp
-    last_log = ScrapingLog.query.order_by(ScrapingLog.timestamp.desc()).first()
-    last_updated = last_log.timestamp if last_log else datetime.utcnow()
-    
-    # Format dates for display
-    date_range = f"{start_date.strftime('%d %b')} – {end_date.strftime('%d %b %Y')}"
-    
-    return render_template('index.html', 
-                         restaurants=restaurants,
-                         date_range=date_range,
-                         last_updated=last_updated,
-                         restaurant_count=len(restaurants))
+    try:
+        start_date, end_date = get_week_range()
+        
+        # Get restaurants from current week
+        restaurants = Restaurant.query.order_by(Restaurant.name).all()
+        
+        # Get last update timestamp
+        last_log = ScrapingLog.query.order_by(ScrapingLog.timestamp.desc()).first()
+        last_updated = last_log.timestamp if last_log else datetime.utcnow()
+        
+        # Format dates for display
+        date_range = f"{start_date.strftime('%d %b')} – {end_date.strftime('%d %b %Y')}"
+        
+        return render_template('index.html', 
+                             restaurants=restaurants,
+                             date_range=date_range,
+                             last_updated=last_updated,
+                             restaurant_count=len(restaurants))
+    except Exception as e:
+        print(f"Route error: {e}")
+        # Return a simple page even if database fails
+        return render_template('index.html', 
+                             restaurants=[],
+                             date_range="Database Error",
+                             last_updated=datetime.utcnow(),
+                             restaurant_count=0)
 
 def setup_scheduler():
     """Set up the background scheduler"""
@@ -252,16 +261,24 @@ def setup_scheduler():
     print("Scheduler started - will scrape every Monday at 02:00 HKT")
 
 # Initialize database and scheduler when module loads (for Gunicorn)
-with app.app_context():
-    db.create_all()
-    
-    # Run initial scrape if database is empty
-    if Restaurant.query.count() == 0:
-        print("Running initial scrape...")
-        update_restaurant_database()
+try:
+    with app.app_context():
+        db.create_all()
+        
+        # Run initial scrape if database is empty
+        try:
+            if Restaurant.query.count() == 0:
+                print("Running initial scrape...")
+                update_restaurant_database()
+        except Exception as e:
+            print(f"Initial data load error: {e}")
+            # Continue anyway - database will be empty but app will run
 
-# Set up scheduler
-setup_scheduler()
+    # Set up scheduler
+    setup_scheduler()
+except Exception as e:
+    print(f"Initialization error: {e}")
+    # App will still run but without scheduler
 
 if __name__ == '__main__':
     # Start Flask server (for local development only)
