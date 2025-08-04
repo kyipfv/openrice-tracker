@@ -51,9 +51,17 @@ def get_week_range():
 
 def search_google_maps_restaurants():
     """Search for new restaurants in Hong Kong using Google Maps API"""
+    # Debug: Show all env vars starting with GOOGLE
+    print("Environment variables check:")
+    for key in os.environ:
+        if 'GOOGLE' in key.upper():
+            print(f"Found env var: {key}")
+    
     api_key = os.environ.get('GOOGLE_MAPS_API_KEY')
     if not api_key:
         print("WARNING: No Google Maps API key found in environment variables")
+        print(f"Looking for: GOOGLE_MAPS_API_KEY")
+        print(f"Available keys: {list(os.environ.keys())[:5]}...")  # Show first 5 keys
         return []
     
     print(f"Google Maps API key found: {api_key[:8]}...")
