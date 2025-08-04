@@ -251,20 +251,20 @@ def setup_scheduler():
     scheduler.start()
     print("Scheduler started - will scrape every Monday at 02:00 HKT")
 
+# Initialize database and scheduler when module loads (for Gunicorn)
+with app.app_context():
+    db.create_all()
+    
+    # Run initial scrape if database is empty
+    if Restaurant.query.count() == 0:
+        print("Running initial scrape...")
+        update_restaurant_database()
+
+# Set up scheduler
+setup_scheduler()
+
 if __name__ == '__main__':
-    # Create database tables
-    with app.app_context():
-        db.create_all()
-        
-        # Run initial scrape if database is empty
-        if Restaurant.query.count() == 0:
-            print("Running initial scrape...")
-            update_restaurant_database()
-    
-    # Set up scheduler
-    setup_scheduler()
-    
-    # Start Flask server
+    # Start Flask server (for local development only)
     port = int(os.environ.get('PORT', 7860))
     print(f"Starting Flask server on 0.0.0.0:{port}")
     app.run(host='0.0.0.0', port=port, debug=False)
