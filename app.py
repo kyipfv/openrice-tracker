@@ -36,11 +36,12 @@ class ScrapingLog(db.Model):
     message = db.Column(db.Text)
 
 def get_week_range():
-    """Get the current week range (Sunday to Saturday ending today)"""
+    """Get the current 7-day window ending today"""
     hk_tz = pytz.timezone('Asia/Hong_Kong')
     today = datetime.now(hk_tz).date()
     
-    # Calculate the start of the week (7 days ago)
+    # Calculate 7-day window ending today (28 Jul - 4 Aug = 8 days, but requirement says 7-day window)
+    # Using 6 days ago to today = 7 days total
     start_date = today - timedelta(days=6)
     end_date = today
     
