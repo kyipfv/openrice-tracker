@@ -476,6 +476,29 @@ def index():
         # Get restaurants from current week
         restaurants = Restaurant.query.order_by(Restaurant.name).all()
         
+        # If no restaurants, add some immediately
+        if not restaurants:
+            fallback_restaurants = [
+                {'name': 'Hotaru', 'address': 'Tsim Sha Tsui, Hong Kong', 'url': 'https://www.google.com/maps/search/Hotaru+Tsim+Sha+Tsui+Hong+Kong'},
+                {'name': 'Carna by Dario Cecchini', 'address': 'Tsim Sha Tsui, Hong Kong', 'url': 'https://www.google.com/maps/search/Carna+by+Dario+Cecchini+Tsim+Sha+Tsui+Hong+Kong'},
+                {'name': 'NOJO', 'address': 'Central, Hong Kong', 'url': 'https://www.google.com/maps/search/NOJO+Central+Hong+Kong'},
+                {'name': 'HEXA', 'address': 'Tsim Sha Tsui, Hong Kong', 'url': 'https://www.google.com/maps/search/HEXA+Tsim+Sha+Tsui+Hong+Kong'},
+                {'name': 'Maison Beirut', 'address': 'Central, Hong Kong', 'url': 'https://www.google.com/maps/search/Maison+Beirut+Central+Hong+Kong'},
+            ]
+            
+            for restaurant_data in fallback_restaurants:
+                restaurant = Restaurant(
+                    name=restaurant_data['name'],
+                    address=restaurant_data['address'],
+                    openrice_url=restaurant_data['url'],
+                    date_added=datetime.utcnow()
+                )
+                db.session.add(restaurant)
+            db.session.commit()
+            
+            # Re-query after adding
+            restaurants = Restaurant.query.order_by(Restaurant.name).all()
+        
         # Get last update timestamp
         last_log = ScrapingLog.query.order_by(ScrapingLog.timestamp.desc()).first()
         last_updated = last_log.timestamp if last_log else datetime.utcnow()
