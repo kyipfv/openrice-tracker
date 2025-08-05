@@ -178,7 +178,6 @@ def scrape_openrice_new_restaurants():
     urls_to_check = [
         'https://www.openrice.com/en/hongkong/restaurants?sortBy=ORScoreDesc&conditionId=2005',  # New restaurants!
         'https://www.openrice.com/en/hongkong/restaurants?conditionId=2005',
-        'https://m.openrice.com/en/hongkong/restaurants?conditionId=2005',
     ]
     
     # First, try to establish a session by visiting the home page
@@ -522,25 +521,48 @@ def setup_scheduler():
     scheduler.start()
     print("Scheduler started - will scrape every Monday at 02:00 HKT")
 
-# Initialize database and scheduler when module loads (for Gunicorn)
+# Initialize database when module loads (for Gunicorn)
 try:
     with app.app_context():
         db.create_all()
+        print("Database initialized successfully")
         
-        # Run initial scrape if database is empty
+        # Only run initial scrape if database is completely empty
         try:
-            if Restaurant.query.count() == 0:
-                print("Running initial scrape...")
-                update_restaurant_database()
+            restaurant_count = Restaurant.query.count()
+            if restaurant_count == 0:
+                print("Database empty, adding fallback data...")
+                # Add fallback data without running the scraper
+                fallback_restaurants = [
+                    {'name': 'Hotaru', 'address': 'Shop 301, 3/F, K11 Art Mall, 18 Hanoi Road, Tsim Sha Tsui', 'url': 'https://www.google.com/maps/search/Hotaru+Tsim+Sha+Tsui+Hong+Kong'},
+                    {'name': 'Carna by Dario Cecchini', 'address': 'Shop OTE 401A, 4/F, Ocean Terminal, Harbour City, Tsim Sha Tsui', 'url': 'https://www.google.com/maps/search/Carna+by+Dario+Cecchini+Tsim+Sha+Tsui+Hong+Kong'},
+                    {'name': 'NOJO', 'address': '1-13 Elgin Street, Central', 'url': 'https://www.google.com/maps/search/NOJO+Central+Hong+Kong'},
+                ]
+                
+                for restaurant_data in fallback_restaurants:
+                    restaurant = Restaurant(
+                        name=restaurant_data['name'],
+                        address=restaurant_data['address'],
+                        openrice_url=restaurant_data['url'],
+                        date_added=datetime.utcnow()
+                    )
+                    db.session.add(restaurant)
+                db.session.commit()
+                print("Fallback data added")
+            else:
+                print(f"Database has {restaurant_count} restaurants")
         except Exception as e:
-            print(f"Initial data load error: {e}")
-            # Continue anyway - database will be empty but app will run
+            print(f"Initial data setup error: {e}")
 
-    # Set up scheduler
-    setup_scheduler()
+    # Set up scheduler (don't crash if this fails)
+    try:
+        setup_scheduler()
+    except Exception as e:
+        print(f"Scheduler setup error: {e}")
+        
 except Exception as e:
-    print(f"Initialization error: {e}")
-    # App will still run but without scheduler
+    print(f"Critical initialization error: {e}")
+    # Don't crash - let the app run without full initialization
 
 if __name__ == '__main__':
     # Start Flask server (for local development only)
