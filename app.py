@@ -105,14 +105,24 @@ def search_google_maps_restaurants():
                         
                         # Only include if business is operational
                         if result.get('business_status') == 'OPERATIONAL':
-                            restaurant_url = result.get('website') or result.get('url', '')
+                            # Prefer website, fall back to Google Maps URL
+                            restaurant_url = result.get('website', '')
+                            
+                            # If no website, create Google Maps URL
+                            if not restaurant_url:
+                                place_id = result.get('place_id', place_id)
+                                restaurant_url = f"https://maps.google.com/maps/place/?q=place_id:{place_id}"
+                            
+                            # Ensure URL has protocol
+                            if restaurant_url and not restaurant_url.startswith(('http://', 'https://')):
+                                restaurant_url = 'https://' + restaurant_url
                             
                             new_restaurants.append({
                                 'name': result.get('name', ''),
                                 'address': result.get('formatted_address', '').replace(', Hong Kong', ''),
                                 'url': restaurant_url
                             })
-                            print(f"Found via Google Maps: {result.get('name')}")
+                            print(f"Found via Google Maps: {result.get('name')} - URL: {restaurant_url[:50]}...")
                 
                 # Limit total results
                 if len(new_restaurants) >= 20:

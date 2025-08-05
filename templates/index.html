@@ -88,8 +88,8 @@
                         <tr class="hover:bg-gray-50 transition-colors duration-150">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">
-                                    {% if restaurant.openrice_url and restaurant.openrice_url != '' %}
-                                    <a href="{{ restaurant.openrice_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline">
+                                    {% if restaurant.openrice_url and restaurant.openrice_url != '' and restaurant.openrice_url.startswith('http') %}
+                                    <a href="{{ restaurant.openrice_url }}" target="_blank" class="text-blue-600 hover:text-blue-800 hover:underline" rel="noopener">
                                         {{ restaurant.name }}
                                     </a>
                                     {% else %}
