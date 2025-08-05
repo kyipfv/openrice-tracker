@@ -106,7 +106,6 @@ def search_google_maps_restaurants():
                         # Only include if business is operational
                         if result.get('business_status') == 'OPERATIONAL':
                             # Always use Google Maps URL for consistency
-                            place_id = place.get('place_id', '')
                             restaurant_name = result.get('name', '')
                             
                             # Create Google Maps search URL using place name and address
@@ -448,10 +447,26 @@ def refresh():
         result = f"Database refreshed with {len(restaurants)} restaurants!<br><br>"
         for r in restaurants[:5]:
             result += f"- {r.name} at {r.address}<br>"
+            result += f"  URL: {r.openrice_url}<br><br>"
         result += f"<br><a href='/'>Go back</a>"
         return result
     except Exception as e:
         return f"Error: {e}"
+
+@app.route('/debug')
+def debug():
+    """Debug page to see raw database content"""
+    restaurants = Restaurant.query.all()
+    result = "<h1>Debug: Raw Database Content</h1>"
+    result += f"<p>Total restaurants: {len(restaurants)}</p>"
+    for r in restaurants:
+        result += f"<hr>"
+        result += f"<b>{r.name}</b><br>"
+        result += f"Address: {r.address}<br>"
+        result += f"URL: {r.openrice_url}<br>"
+        result += f"URL type: {type(r.openrice_url)}<br>"
+        result += f"URL starts with http: {r.openrice_url.startswith('http') if r.openrice_url else 'None'}<br>"
+    return result
 
 @app.route('/')
 def index():
