@@ -105,24 +105,20 @@ def search_google_maps_restaurants():
                         
                         # Only include if business is operational
                         if result.get('business_status') == 'OPERATIONAL':
-                            # Prefer website, fall back to Google Maps URL
-                            restaurant_url = result.get('website', '')
+                            # Always use Google Maps URL for consistency
+                            place_id = place.get('place_id', '')
+                            restaurant_name = result.get('name', '')
                             
-                            # If no website, create Google Maps URL
-                            if not restaurant_url:
-                                place_id = result.get('place_id', place_id)
-                                restaurant_url = f"https://maps.google.com/maps/place/?q=place_id:{place_id}"
-                            
-                            # Ensure URL has protocol
-                            if restaurant_url and not restaurant_url.startswith(('http://', 'https://')):
-                                restaurant_url = 'https://' + restaurant_url
+                            # Create Google Maps search URL using place name and address
+                            search_query = f"{restaurant_name} {location['name']} Hong Kong"
+                            restaurant_url = f"https://www.google.com/maps/search/{search_query.replace(' ', '+')}"
                             
                             new_restaurants.append({
-                                'name': result.get('name', ''),
+                                'name': restaurant_name,
                                 'address': result.get('formatted_address', '').replace(', Hong Kong', ''),
                                 'url': restaurant_url
                             })
-                            print(f"Found via Google Maps: {result.get('name')} - URL: {restaurant_url[:50]}...")
+                            print(f"Found via Google Maps: {restaurant_name}")
                 
                 # Limit total results
                 if len(new_restaurants) >= 20:
